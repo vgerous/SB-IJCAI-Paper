@@ -23,6 +23,8 @@ Example: python3 SpotBlock-Run-GroundTruth.py Azure2019 t1 0.01
 ```
 python3 SpotBlock-Main.py <data_branch> <typeid> <downSampleFactor> 
     <prediction_model> <whether optnet> <optnet violation regularity> <optnet iterations>
+```
+```
 Example:  
 ```
 - downSampleFactor: 0(no data) - 1(all data)
