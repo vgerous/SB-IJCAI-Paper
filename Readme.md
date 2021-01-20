@@ -38,7 +38,7 @@ Example: python3 SpotBlock-Main-BayesOpt.py Default 64 0.01 FCNet 1 --p=0.3
 ```
 It will print average utilities and average viorate before/after Bayesian Optimization on the hyperparameters. The default number of interation is 10, you can change it in ''BayesOpt/BO_main.py''.
 
-## Run the script to reproduce the results
+## Run The Script To Reproduce Experiment Results
 If you want to run all the experiments end-to-end, it is easy to dirsctly run those scripts to reproduce the experiment results.
 
 - to precache the ground truth results
