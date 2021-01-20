@@ -30,16 +30,16 @@ Example:
 - whether optnet: 1(do optnet) / 0(not do optnet). Note that only 'FCNet' supports OptNet option.
 
 ## Run Bayesian Optimization Module
-- If you want to run with Bayesian Optimization Module, you can enter:
+If you want to run with Bayesian Optimization Module, you can enter:
 
 ```
 python3 SpotBlock-Main-BayesOpt.py <data_branch> <typeid> <downSampleFactor> <prediction_model> <whether optnet> --p=<violation_threshold>
 Example: python3 SpotBlock-Main-BayesOpt.py Default 64 0.01 FCNet 1 --p=0.3
 ```
-- It will print average utilities and average viorate before/after Bayesian Optimization on the hyperparameters. The default number of interation is 10, you can change it in ''BayesOpt/BO_main.py''.
+It will print average utilities and average viorate before/after Bayesian Optimization on the hyperparameters. The default number of interation is 10, you can change it in ''BayesOpt/BO_main.py''.
 
 ## Run the script to reproduce the results
-- If you want to run all the experiments end-to-end, it is easy to dirsctly run those scripts to reproduce the experiment results.
+If you want to run all the experiments end-to-end, it is easy to dirsctly run those scripts to reproduce the experiment results.
 
 - to precache the ground truth results
 
