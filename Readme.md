@@ -66,7 +66,7 @@ python3 run-jobs-t4-bo.py
 
 
 ## Experiment Results
-Runs and saves the following results to an excel file with the corresponding filename.
+Runs and saves the following results to an excel file with the corresponding filename. All the experiment results will be saved in the file 'exp_results/'.
 
 - utilities & utility ratios & violation rates of two-stage model
 - utilities & utility ratios & violation rates of RobustOpt model, for each ```p=0.05,0.10,...,0.50```.
