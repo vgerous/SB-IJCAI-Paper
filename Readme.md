@@ -22,14 +22,14 @@ Example: python3 SpotBlock-Run-GroundTruth.py Azure2019 t1 0.01
 ## Run Basic Module
 ```
 python3 SpotBlock-Main.py <data_branch> <typeid> <downSampleFactor> 
-    <prediction_model> <whether optnet> <optnet violation regularity> <optnet iterations>
+    <prediction_model> <whether optnet> <optnet violation regularity> <optnet iterations> --opt <optimization method>
 ```
 ```
 Example: python3 SpotBlock-Main.py Azure2019 t1 0.01 TSDec 0 50 10 --opt Heuristic
 ```
 - downSampleFactor: 0(no data) - 1(all data)
 - prediction_model: one of 'LinearFit', 'TSDec', 'FCNet', 'LstmNet', 'AutoARIMA', 'FbProphet', 'UCM'
-- optimization model: 'MIP' from gurobipy package; 'Heuristic' implemented by using idea of Heuristic Search
+- optimization method: 'MIP' from gurobipy package; 'Heuristic' implemented by using idea of Heuristic Search
 - whether optnet: 1(do optnet) / 0(not do optnet). Note that only 'FCNet' supports OptNet option.
 
 ## Run Bayesian Optimization Module
