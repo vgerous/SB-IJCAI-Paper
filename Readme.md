@@ -5,6 +5,7 @@ The proactive spot block scheduling problem is a predict + optimize problem for 
 ## Package Dependencies
 - **python3**, **numpy**, **torch**, **cvxpy**, **gurobi**, **scikit-learn==0.22.2.post1**
 - you can run the script **gcr-setup.sh** to setup the environment.
+- to support the heuristic search optimization method implemented in C++, please run the code in linux environment.
 
 ## Precache Ground Truth Results
 - Before running the experiments, we need to cache the ground truth results in order to evaluate our results. 
