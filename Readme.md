@@ -37,6 +37,8 @@ If you want to run with Bayesian Optimization Module, you can enter:
 
 ```
 python3 SpotBlock-Main-BayesOpt.py <data_branch> <typeid> <downSampleFactor> <prediction_model> <whether optnet> --p=<violation_threshold>
+```
+```
 Example: python3 SpotBlock-Main-BayesOpt.py Default 64 0.01 FCNet 1 --p=0.3
 ```
 It will print average utilities and average viorate before/after Bayesian Optimization on the hyperparameters. The default number of interation is 10, you can change it in ''BayesOpt/BO_main.py''.
