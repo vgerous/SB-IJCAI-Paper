@@ -364,52 +364,6 @@ def HeuristicSearch_cpp_exe(T,N,c,d,e,l,a_hat):
     #print("deploy_ratio: ", counter/N)
     return decisions, counter/N
 
-
-
-'''
-def HeuristicSearch(T,N,c,d,e,l,a_hat):
-    X = np.zeros((N, T))
-    #VM_queue = [c[i]*d[i] for i in range(N)]
-    VM_queue = [c[i]/d[i] for i in range(N)]
-    #priority_queue = sorted(VM_queue, reverse=True)
-    sorted_index = sorted(range(len(VM_queue)), key=lambda k: VM_queue[k], reverse=True)
-
-    counter = 0
-
-    for i in range(N):
-        j = sorted_index[i]
-        delta_list = []
-        for start_t in range(e[j], min(l[j], T - d[j]) + 1):
-            min_delta = 10086
-            for cur_timestamp in range(start_t, start_t + d[j]):
-                discount_factor = math.exp(-cur_timestamp/(1.5*T))
-                Threshold = discount_factor*a_hat[cur_timestamp]
-                if (np.dot(X[:, cur_timestamp], c) + c[j]) > Threshold:
-                    min_delta = -1
-                    break
-                if Threshold - (np.dot(X[:, cur_timestamp], c) + c[j]) < min_delta:
-                    min_delta = Threshold - (np.dot(X[:, cur_timestamp], c) + c[j])
-            delta_list.append(min_delta)
-        optimal_delta = max(delta_list)
-        if optimal_delta == -1:
-            continue
-        else:
-            opt_timestamp = e[j] + delta_list.index(optimal_delta) 
-            counter += 1
-            X[j, opt_timestamp] = 1
-
-    for i in range(T):
-        assert(np.dot(X[:, i], c) < a_hat[i])
-
-    decisions = get_decisions_HS(X)
-    #print("decisions: ", decisions)
-    print("deploy_ratio: ", counter/N)
-    
-    return decisions, counter/N
-
-'''
-
-
 def get_decisions_HS(X):
     decision = []
     counter = 0
