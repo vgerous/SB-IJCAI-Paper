@@ -16,7 +16,7 @@ python3 SpotBlock-Run-GroundTruth.py <data_branch> <typeid> <downSampleFactor>
 ```
 Example: python3 SpotBlock-Run-GroundTruth.py Azure2019 t1 0.01
 ```
-- data_branch: 'Default', 'Azure2019', 'Azure2017'
+- data_branch: 'Default'(Azure2020), 'Azure2019', 'Azure2017'
 - typeid: 65, 64, 42, 41 for 'Default' data branch; 't1','t2','t3','t5','t6','t7' for 'Azure2019' branch; 't1','t2','t3','t5','t6' for 'Azure2017' branch;
 
 ## Run Basic Module
