@@ -1,6 +1,6 @@
-# Predictive Scheduling under Capacity Uncertainty for Spot Block Instances inCloud Computing
+# Controlling underUncertain  Constraints (CUC)
 
-The proactive spot block scheduling problem is a predict + optimize problem for  the spot block products in cloud computing platforms, where the predicted capacity guides the optimization of job scheduling and job scheduling results are leveraged to improve the prediction of capacity. 
+Controlling underUncertain Constraints (CUC) is proposed where the predicted capacity guides the optimization of job scheduling and job scheduling results are leveraged to improve the prediction of capacity through Bayesian optimization.
 
 ## Package Dependencies
 - **python3**, **numpy**, **torch**, **cvxpy**, **gurobi**, **scikit-learn==0.22.2.post1**
