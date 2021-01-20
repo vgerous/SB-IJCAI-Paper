@@ -25,7 +25,7 @@ python3 SpotBlock-Main.py <data_branch> <typeid> <downSampleFactor>
     <prediction_model> <whether optnet> <optnet violation regularity> <optnet iterations>
 ```
 ```
-Example:  
+Example: python3 SpotBlock-Main.py Azure2019 t1 0.01 TSDec 0 50 10 --opt Heuristic
 ```
 - downSampleFactor: 0(no data) - 1(all data)
 - prediction_model: one of 'LinearFit', 'TSDec', 'FCNet', 'LstmNet', 'AutoARIMA', 'FbProphet', 'UCM'
