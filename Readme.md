@@ -1,10 +1,10 @@
 # Predictive Scheduling under Capacity Uncertainty for Spot Block Instances inCloud Computing
 
-The proactive spot block scheduling problem is a predict + optimize problem for  the spot block products in cloud computing platforms, where the predicted capacity guides the optimization of job scheduling and job scheduling resultsare leveraged to improve the prediction of capacity. 
+The proactive spot block scheduling problem is a predict + optimize problem for  the spot block products in cloud computing platforms, where the predicted capacity guides the optimization of job scheduling and job scheduling results are leveraged to improve the prediction of capacity. 
 
 ## Package Dependencies
 - **python3**, **numpy**, **torch**, **cvxpy**, **gurobi**, **scikit-learn==0.22.2.post1**
-- any version not too old should work.
+- you can run the script **gcr-setup.sh** to setup the environment.
 
 ## Precache Ground Truth Results
 - Before running the experiments, we need to cache the ground truth results in order to evaluate our results. 
@@ -26,7 +26,7 @@ Example:
 ```
 - downSampleFactor: 0(no data) - 1(all data)
 - prediction_model: one of 'LinearFit', 'TSDec', 'FCNet', 'LstmNet', 'AutoARIMA', 'FbProphet', 'UCM'
-- optimization model: "MIP" from gurobipy package; "Heuristic" implemented by using idea of Heuristic Search
+- optimization model: 'MIP' from gurobipy package; 'Heuristic' implemented by using idea of Heuristic Search
 - whether optnet: 1(do optnet) / 0(not do optnet). Note that only 'FCNet' supports OptNet option.
 
 ## Run Bayesian Optimization Module
@@ -38,13 +38,31 @@ Example: python3 SpotBlock-Main-BayesOpt.py Default 64 0.01 FCNet 1 --p=0.3
 ```
 - It will print average utilities and average viorate before/after Bayesian Optimization on the hyperparameters. The default number of interation is 10, you can change it in ''BayesOpt/BO_main.py''.
 
+## Run the script to reproduce the results
+- If you want to run all the experiments end-to-end, it is easy to dirsctly run those scripts to reproduce the experiment results.
+
+- to precache the ground truth results
+
+```
+python3 run-jobs-cache.py
+```
+
+- to run the experiments using basic module
+
+```
+python3 run-jobs-t4.py
+```
+
+- to run the experiments using bayesian optimization module
+
+```
+python3 run-jobs-t4-bo.py
+```
+
+
 ## Experiment Results
 Runs and saves the following results to an excel file with the corresponding filename.
+
 - utilities & utility ratios & violation rates of two-stage model
 - utilities & utility ratios & violation rates of RobustOpt model, for each ```p=0.05,0.10,...,0.50```.
 - utilities & utility ratios & violation rates of optnet model if ```<whether optnet>==1```.
-## Others
-- there's a ```default_capacity_scaledown``` parameter for each branch & type of data (see the main file for details). 
-Feel free to change them to make the problem instances more/less challenging.
-- Sometimes Gurobi gets stuck when solving MIP. Currently a maximum time limit of 30 seconds is set; feel free to change it.
-- Sometimes the qpth solver provided by the OptNet paper breaks down; nothing can be done except re-run the codes.
