@@ -1,4 +1,4 @@
-# Controlling underUncertain  Constraints (CUC)
+# Controlling under Uncertain  Constraints (CUC)
 
 Controlling underUncertain Constraints (CUC) is proposed where the predicted capacity guides the optimization of job scheduling and job scheduling results are leveraged to improve the prediction of capacity through Bayesian optimization.
 
