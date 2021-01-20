@@ -71,3 +71,19 @@ Runs and saves the following results to an excel file with the corresponding fil
 - utilities & utility ratios & violation rates of two-stage model
 - utilities & utility ratios & violation rates of RobustOpt model, for each ```p=0.05,0.10,...,0.50```.
 - utilities & utility ratios & violation rates of optnet model if ```<whether optnet>==1```.
+
+
+## Code Structure
+- **BayesOpt**: contains functions & classes relevant to the Bayesian Optimization module.
+- **data**: contains raw data used for experiments.
+- **exp_results**: used for saving experimental results.
+- **qpth_local**: the qpth package (https://locuslab.github.io/qpth/) with some local modifications for speeding up in our experiments.
+- **utils.py**: contains helper functions for loading/pre-processing raw data.
+- **qpth_utils.py**: contains helper functions for qpth-related parameter transformations.
+
+
+
+
+
+
+
