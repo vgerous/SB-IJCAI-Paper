@@ -37,7 +37,7 @@ class BayesianOptimization:
         
         # init
         self.X = self.pa.sample(self.init_sample)
-        if self.max_iter <=0:
+        if self.max_iter < 0:
             return self.X, None
         init_models = [self.pa.analyse(x) for x in self.X]
 

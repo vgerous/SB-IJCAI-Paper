@@ -25,3 +25,9 @@ wget https://packages.gurobi.com/9.1/gurobi9.1.1_linux64.tar.gz
 tar xzvf gurobi9.1.1_linux64.tar.gz
 # Apply a key in Account setting
 ~/pkgs/gurobi911/linux64/bin/grbgetkey 00000000-0000-0000-0000-000000000000
+
+# Get source
+# Need to generate/upload SSH keys
+mkdir ~/source
+cd ~/source
+git clone git@ssh.dev.azure.com:v3/chual/SpotBlockResearch/Competitors

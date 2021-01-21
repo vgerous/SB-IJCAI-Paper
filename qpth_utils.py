@@ -14,9 +14,9 @@ from utils import filter_requests, requests2params, cal_demand_and_profit, greed
 from qpth_local.qp import QPFunction, QPSolvers
 
 
-def transform_qpth(T,N,c,d,e,l,epsilon=2e-3,sparse=True):
+def transform_qpth(T, N, c, d, e, l, epsilon=2e-3, sparse=True):
     """
-    transform the problem formulation into standard QP form. 
+    transform the problem formulation into standard QP form.
     Params:
         T,N,c,d,e,l: same as in the Spot Block problem formulation.
         epsilon: coefficient for the quadratic term (Q=epsilon*I)
@@ -25,11 +25,11 @@ def transform_qpth(T,N,c,d,e,l,epsilon=2e-3,sparse=True):
         epsilon,p: objective = 1/2 epsilon*x^Tx  +  p^T x  (using epsilon instead of Q to save memory usage.)
         G,h: constraint is Gx <= h
     VERY IMPORTANT:
-        h[:T] is the slot for total capacity constraints (a in SB formulation) and is empty in the returned value, 
+        h[:T] is the slot for total capacity constraints (a in SB formulation) and is empty in the returned value,
         need to be filled with predicted/real capacities outside this function.
     """
     # the dimension of the decision variables for each VM
-    dims = l-e+1
+    dims = l - e + 1
     # total number of decision variables
     total_dim = int(np.sum(dims))
 
@@ -37,14 +37,14 @@ def transform_qpth(T,N,c,d,e,l,epsilon=2e-3,sparse=True):
     p = np.zeros(total_dim)
     for i in range(N):
         index = np.sum(dims[:i])
-        p[index: index+dims[i]] = -c[i]*d[i]
-    
+        p[index: index + dims[i]] = -c[i] * d[i]
+
     # parameters in the constraints
     if sparse:
         # use sparse matrix implementation
-        G = lil_matrix((T+N, total_dim))
+        G = lil_matrix((T + N, total_dim))
     else:
-        G = np.zeros((T+N, total_dim))
+        G = np.zeros((T + N, total_dim))
 
     h = np.zeros(T + N)
     # 1. capacity constraint. details see problem formulation
@@ -52,12 +52,12 @@ def transform_qpth(T,N,c,d,e,l,epsilon=2e-3,sparse=True):
         x = np.zeros(total_dim)
         for i in range(N):
             index = np.sum(dims[:i])
-            left = max(e[i],t-d[i]+1)
+            left = max(e[i], t - d[i] + 1)
             right = min(t, l[i])
             left -= e[i]
             right -= e[i]
             if right >= left:
-                x[index+left:index+right+1] = c[i]
+                x[index + left:index + right + 1] = c[i]
         G[t] = x
     # h[:T] should be the capacities; NEED to be filled LATER outside this function.
 
@@ -66,10 +66,10 @@ def transform_qpth(T,N,c,d,e,l,epsilon=2e-3,sparse=True):
     for i in range(N):
         x = np.zeros(total_dim)
         index = np.sum(dims[:i])
-        G[T+i, index: index+dims[i]] = 1
-    h[T:T+N] = 1
+        G[T + i, index: index + dims[i]] = 1
+    h[T:T + N] = 1
     # number of inequality constraints (without non-negative constraints): G.shape[0]
-    return epsilon,p,G,h
+    return epsilon, p, G, h
 
 
 def GetDecisionFromSol(sol, N, T, e, l):
@@ -85,7 +85,7 @@ def GetDecisionFromSol(sol, N, T, e, l):
     """
     # sol: the .
     # the decision variables; either the starting time or None (no-deploy). Currently all VMs are deployed, could be modified.
-    dims = l-e+1
+    dims = l - e + 1
     total_dim = int(np.sum(dims))
 
     decisions = []
@@ -93,14 +93,15 @@ def GetDecisionFromSol(sol, N, T, e, l):
     counter = 0
     for i in range(N):
         index = np.sum(dims[:i])
-        decision_variables = sol[index:index+dims[i]]
+        decision_variables = sol[index:index + dims[i]]
         if np.sum(decision_variables) < 1e-2:
             decisions.append(None)
             continue
-        decisions.append(e[i]+np.argmax(decision_variables))
+        decisions.append(e[i] + np.argmax(decision_variables))
         counter += 1
 
-    return decisions, counter/N
+    return decisions, counter / N
+
 
 def collect_ML_data(history_lookback, T, request_thres, capacities, requests):
     """
@@ -110,12 +111,12 @@ def collect_ML_data(history_lookback, T, request_thres, capacities, requests):
         req_params: current requests data
         data_y: ground truth current capacities
     """
-    data_X1 = []     # history capacities
+    data_X1 = []  # history capacities
     req_params = []  # current requests data
-    data_y = []      # ground truth current capacities
+    data_y = []  # ground truth current capacities
     for t in range(len(capacities)):
         # collect history capacities and current capacities in a sliding window style
-        T1, T2 = t+history_lookback, t+history_lookback+T
+        T1, T2 = t + history_lookback, t + history_lookback + T
         if T2 >= len(capacities):
             # out of range
             break
@@ -128,6 +129,7 @@ def collect_ML_data(history_lookback, T, request_thres, capacities, requests):
         req_params.append(filtered_requests)
 
     return np.array(data_X1), req_params, np.array(data_y)
+
 
 def eval_performance(a, a_hat, req_param, T, solve_method, time_limit, nn_device=torch.device('cpu')):
     """
@@ -172,8 +174,8 @@ def eval_performance(a, a_hat, req_param, T, solve_method, time_limit, nn_device
 
     if solve_method == 'MIP':
         tick = time.time()
-        N,c,d,e,l = requests2params(req_param)
-        _,p,G,h = transform_qpth(T,N,c,d,e,l,sparse=True)   # no use of quadratic term here
+        N, c, d, e, l = requests2params(req_param)
+        _, p, G, h = transform_qpth(T, N, c, d, e, l, sparse=True)  # no use of quadratic term here
         h[:T] = a_hat
         tock = time.time()
         # print("transform params using", tock-tick, "seconds")
@@ -183,24 +185,34 @@ def eval_performance(a, a_hat, req_param, T, solve_method, time_limit, nn_device
         m = gp.Model("mip1")
         m.Params.LogToConsole = 0
         m.setParam(GRB.Param.TimeLimit, time_limit)
+        m.setParam(GRB.Param.IntFeasTol, 1e-9)
+        m.setParam(GRB.Param.OptimalityTol, 1e-9)
+        m.setParam(GRB.Param.FeasibilityTol, 1e-9)
+        m.setParam(GRB.Param.Threads, 1)
         # Create variables
+        sol_start_time = time.time()
         x = m.addMVar(G.shape[1], vtype=GRB.BINARY, name="x")
+        sol_end_time = time.time()
         m.setObjective(p @ x, GRB.MINIMIZE)
         m.addConstr(G @ x <= h, "c")
         m.optimize()
         sol = np.array(m.getAttr("x"))
         tock = time.time()
+
+        print(
+            f"MIP solution quality by Gurobi: {m.getAttr(GRB.attr.Status)} under time limit {time_limit} using {sol_end_time - sol_start_time}")
+
         # make sure that all constraints are satisfied
         # assert (sol>-1e-4).all()
         # assert (np.dot(G, sol)-h < 1e-4).all()
         # print("solve MIP using", tock-tick, "seconds")
         decisions, deploy_ratio = GetDecisionFromSol(sol, N, T, e, l)
-        #decisions, deploy_ratio = HeuristicSearch(T,N,c,d,e,l,a_hat)
-        #print("decisions: ", decisions)
-        #print("deploy_ratio: ", deploy_ratio)
-        total_demand_cores, profit = cal_demand_and_profit(decisions,N,T,c,d)
-        ind = np.argwhere(total_demand_cores > a).reshape(-1) 
-        return profit, len(ind), np.sum(total_demand_cores[ind]-a[ind]), deploy_ratio
+        # decisions, deploy_ratio = HeuristicSearch(T,N,c,d,e,l,a_hat)
+        # print("decisions: ", decisions)
+        # print("deploy_ratio: ", deploy_ratio)
+        total_demand_cores, profit = cal_demand_and_profit(decisions, N, T, c, d)
+        ind = np.argwhere(total_demand_cores > a).reshape(-1)
+        return profit, len(ind), np.sum(total_demand_cores[ind] - a[ind]), deploy_ratio
 
     if solve_method == 'Heuristic':
         tick = time.time()
@@ -210,7 +222,7 @@ def eval_performance(a, a_hat, req_param, T, solve_method, time_limit, nn_device
 
         # Create a new model
         tick = time.time()
-        decisions, deploy_ratio = HeuristicSearch(T,N,c,d,e,l,a_hat)
+        decisions, deploy_ratio = HeuristicSearch(T, N, c, d, e, l, a_hat)
         tock = time.time()
         # make sure that all constraints are satisfied
         # assert (sol>-1e-4).all()
@@ -218,9 +230,9 @@ def eval_performance(a, a_hat, req_param, T, solve_method, time_limit, nn_device
         # print("solve Heuristic using", tock-tick, "seconds")
 
         # print("decisions: ", decisions)
-        total_demand_cores,profit = cal_demand_and_profit(decisions,N,T,c,d)  
-        ind = np.argwhere(total_demand_cores > a).reshape(-1) 
-        return profit,len(ind),np.sum(total_demand_cores[ind]-a[ind]),deploy_ratio
+        total_demand_cores, profit = cal_demand_and_profit(decisions, N, T, c, d)
+        ind = np.argwhere(total_demand_cores > a).reshape(-1)
+        return profit, len(ind), np.sum(total_demand_cores[ind] - a[ind]), deploy_ratio
 
     assert False
 
@@ -237,9 +249,12 @@ def eval_perf_batch_step(task):
     if display:
         print(f"    [{index} / {total_task}] Finish {end_time}, Duration {end_time - start_time}")
 
-    return profit, num_violations/T, vio_capacity, deploy_ratio, end_time - start_time
+    return profit, num_violations / T, vio_capacity, deploy_ratio, end_time - start_time
+
 
 shared_parallel_executor = None
+
+
 def get_parallel_executor(max_workers=6):
     global shared_parallel_executor
     if shared_parallel_executor == None:
@@ -247,7 +262,9 @@ def get_parallel_executor(max_workers=6):
         shared_parallel_executor = ProcessPoolExecutor(max_workers=max_workers)
     return shared_parallel_executor
 
-def eval_perf_batch(a_s, a_hat_s, req_params, T, solve_method, time_lim, display=False, nn_device=torch.device('cpu'), parallel=False, parallel_proc=6):
+
+def eval_perf_batch(a_s, a_hat_s, req_params, T, solve_method, time_lim, display=False, nn_device=torch.device('cpu'),
+                    parallel=False, parallel_proc=6):
     """
     evaluate the performance of a batch of predicted capacities.
     params:
@@ -296,11 +313,11 @@ def eval_perf_batch(a_s, a_hat_s, req_params, T, solve_method, time_lim, display
     for i in range(len(a_s)):
         start_time = datetime.datetime.utcnow()
         if display:
-            print(i, end=" ", flush=True)      # just for monitor progress
+            print(i, end=" ", flush=True)  # just for monitor progress
         profit, num_violations, vio_capacity, deploy_ratio = eval_performance(
             a_s[i], a_hat_s[i], req_params[i], T, solve_method, time_limit=time_lim, nn_device=nn_device)
         utilities.append(profit)
-        vio_rate.append(num_violations/T)
+        vio_rate.append(num_violations / T)
         vio_usage.append(vio_capacity)
         deploy_ratios.append(deploy_ratio)
         end_time = datetime.datetime.utcnow()
@@ -309,20 +326,21 @@ def eval_perf_batch(a_s, a_hat_s, req_params, T, solve_method, time_lim, display
         durations.append(end_time - start_time)
     if display:
         print()
-    
+
     total_duration = sum([d for d in durations], datetime.timedelta())
     return utilities, vio_usage, vio_rate, deploy_ratios, total_duration
 
 
-def HeuristicSearch(T,N,c,d,e,l,a_hat):
+def HeuristicSearch(T, N, c, d, e, l, a_hat):
     from heuristic import search
     X = search(T, N, c, d, e, l, a_hat)
 
     decisions, counter = get_decisions_HS(np.array(X))
-    #print("deploy_ratio: ", counter/N)
-    return decisions, counter/N
+    # print("deploy_ratio: ", counter/N)
+    return decisions, counter / N
 
-def HeuristicSearch_cpp_exe(T,N,c,d,e,l,a_hat):
+
+def HeuristicSearch_cpp_exe(T, N, c, d, e, l, a_hat):
     X = np.zeros((N, T))
 
     nowTime = f"ex-{str(os.getpid())}-{str(datetime.datetime.utcnow().timestamp())}"
@@ -331,15 +349,15 @@ def HeuristicSearch_cpp_exe(T,N,c,d,e,l,a_hat):
     print(T, end=' ', file=f)
     print(N, end=' ', file=f)
     for i in c:
-        print(i, end=' ',file=f)
+        print(i, end=' ', file=f)
     for i in d:
-        print(i, end=' ',file=f)
+        print(i, end=' ', file=f)
     for i in e:
-        print(i, end=' ',file=f)
+        print(i, end=' ', file=f)
     for i in l:
-        print(i, end=' ',file=f)
+        print(i, end=' ', file=f)
     for i in a_hat:
-        print(i, end=' ',file=f)
+        print(i, end=' ', file=f)
     f.close()
 
     subprocess.run([
@@ -349,20 +367,65 @@ def HeuristicSearch_cpp_exe(T,N,c,d,e,l,a_hat):
 
     output_name = "exchange_files/" + nowTime + "_out.txt"
     with open(output_name, 'r+') as f:
-        lines= f.readlines()
+        lines = f.readlines()
 
-    row=0
+    row = 0
     for line in lines:
-        line=line.strip().split('\t')
-        X[row,:]=line[:][0].split()
-        row+=1
+        line = line.strip().split('\t')
+        X[row, :] = line[:][0].split()
+        row += 1
 
     os.remove(filename)
     os.remove(output_name)
 
     decisions, counter = get_decisions_HS(X)
-    #print("deploy_ratio: ", counter/N)
+    # print("deploy_ratio: ", counter/N)
+    return decisions, counter / N
+
+
+'''
+def HeuristicSearch(T,N,c,d,e,l,a_hat):
+    X = np.zeros((N, T))
+    #VM_queue = [c[i]*d[i] for i in range(N)]
+    VM_queue = [c[i]/d[i] for i in range(N)]
+    #priority_queue = sorted(VM_queue, reverse=True)
+    sorted_index = sorted(range(len(VM_queue)), key=lambda k: VM_queue[k], reverse=True)
+
+    counter = 0
+
+    for i in range(N):
+        j = sorted_index[i]
+        delta_list = []
+        for start_t in range(e[j], min(l[j], T - d[j]) + 1):
+            min_delta = 10086
+            for cur_timestamp in range(start_t, start_t + d[j]):
+                discount_factor = math.exp(-cur_timestamp/(1.5*T))
+                Threshold = discount_factor*a_hat[cur_timestamp]
+                if (np.dot(X[:, cur_timestamp], c) + c[j]) > Threshold:
+                    min_delta = -1
+                    break
+                if Threshold - (np.dot(X[:, cur_timestamp], c) + c[j]) < min_delta:
+                    min_delta = Threshold - (np.dot(X[:, cur_timestamp], c) + c[j])
+            delta_list.append(min_delta)
+        optimal_delta = max(delta_list)
+        if optimal_delta == -1:
+            continue
+        else:
+            opt_timestamp = e[j] + delta_list.index(optimal_delta) 
+            counter += 1
+            X[j, opt_timestamp] = 1
+
+    for i in range(T):
+        assert(np.dot(X[:, i], c) < a_hat[i])
+
+    decisions = get_decisions_HS(X)
+    #print("decisions: ", decisions)
+    print("deploy_ratio: ", counter/N)
+
     return decisions, counter/N
+
+'''
+
 
 def get_decisions_HS(X):
     decision = []
@@ -377,6 +440,6 @@ def get_decisions_HS(X):
             continue
         else:
             print("deploy on more than one time!")
-            assert()
+            assert ()
 
     return decision, counter

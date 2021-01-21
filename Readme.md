@@ -11,21 +11,21 @@ Controlling underUncertain Constraints (CUC) is proposed where the predicted cap
 - Before running the experiments, we need to cache the ground truth results in order to evaluate our results. 
 - For precaching ground truth results, run:
 ```
-python3 SpotBlock-Run-GroundTruth.py <data_branch> <typeid> <downSampleFactor>
+python3 SpotBlock-Run-GroundTruth.py <data_branch> <downSampleFactor>
 ```
 ```
-Example: python3 SpotBlock-Run-GroundTruth.py Azure2019 t1 0.01
+Example: python3 SpotBlock-Run-GroundTruth.py Azure2019 0.01
 ```
 - data_branch: 'Default'(Azure2020), 'Azure2019', 'Azure2017'
 - typeid: 65, 64, 42, 41 for 'Default' data branch; 't1','t2','t3','t5','t6','t7' for 'Azure2019' branch; 't1','t2','t3','t5','t6' for 'Azure2017' branch;
 
 ## Run Basic Module
 ```
-python3 SpotBlock-Main.py <data_branch> <typeid> <downSampleFactor> 
+python3 SpotBlock-Main.py <data_branch> <downSampleFactor> 
     <prediction_model> <whether optnet> <optnet violation regularity> <optnet iterations> --opt <optimization method>
 ```
 ```
-Example: python3 SpotBlock-Main.py Azure2019 t1 0.01 TSDec 0 50 10 --opt Heuristic
+Example: python3 SpotBlock-Main.py Azure2019 0.01 TSDec 0 50 10 --opt Heuristic
 ```
 - downSampleFactor: 0(no data) - 1(all data)
 - prediction_model: one of 'LinearFit', 'TSDec', 'FCNet', 'LstmNet', 'AutoARIMA', 'FbProphet', 'UCM'
@@ -36,10 +36,10 @@ Example: python3 SpotBlock-Main.py Azure2019 t1 0.01 TSDec 0 50 10 --opt Heurist
 If you want to run with Bayesian Optimization Module, you can enter:
 
 ```
-python3 SpotBlock-Main-BayesOpt.py <data_branch> <typeid> <downSampleFactor> <prediction_model> <whether optnet> --p=<violation_threshold>
+python3 SpotBlock-Main-BayesOpt.py <data_branch> <downSampleFactor> <prediction_model> <whether optnet> --p=<violation_threshold>
 ```
 ```
-Example: python3 SpotBlock-Main-BayesOpt.py Default 64 0.01 FCNet 1 --p=0.3
+Example: python3 SpotBlock-Main-BayesOpt.py Default 0.01 FCNet 1 --p=0.3
 ```
 It will print average utilities and average viorate before/after Bayesian Optimization on the hyperparameters. The default number of interation is 10, you can change it in ''BayesOpt/BO_main.py''.
 
@@ -82,10 +82,3 @@ Runs and saves the following results to an excel file with the corresponding fil
 - **qpth_utils.py**: contains helper functions for qpth-related parameter transformations.
 - **heuristic.cpp**, **HS.cpp**: source files to support heuristic search method.
 - **heuristic.cpython-38-x86_64-linux-gnu.so**, **HS_cpp**: executive files to support heuristic search method.
-
-
-
-
-
-
-

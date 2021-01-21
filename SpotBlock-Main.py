@@ -2,16 +2,14 @@
 # coding: utf-8
 
 import warnings
+import sys
 import numpy as np
-# import matplotlib.pyplot as plt
 from scipy.stats import norm
 import time
 import torch
 
 # local libraries & helper functions
 from utils import load_data, scale_and_downsample, load_GroundTruth_utilities, parse_arguments
-from utils import get_sim_data_downscale_ratio, get_capa_scaledown
-from utils import load_data, scale_and_downsample, load_GroundTruth_utilities, parse_arguments, get_sim_data_downscale_ratio
 from qpth_utils import collect_ML_data, eval_perf_batch, get_parallel_executor
 from nongrad_models.GaussianMixtureModel import GmmModel
 
@@ -23,52 +21,45 @@ if __name__ == "__main__":
     args = parse_arguments()
     # retrieve params
     branch = args.branch
-    typeid = args.typeid
     d_factor = args.d_factor
     model_name = args.model_name
-    if_optnet = args.if_optnet
     optnet_vio_regularity = args.optnet_vio_regularity
     optnet_iterations = args.optnet_iterations
 
     on_gpu = torch.cuda.is_available() if args.use_gpu is None else args.use_gpu 
     nn_device = torch.device('cuda') if on_gpu else torch.device('cpu')
 
-    file_name = branch+"_"+typeid+"_"+str(d_factor)+"_"+model_name+"_"+str(if_optnet)
-    # generate filename to write results to
-    if if_optnet == 1:
-        file_name = file_name+"_"+str(optnet_vio_regularity)+"_"+str(optnet_iterations)
-    if args.use_sim:
-        file_name = file_name+"_sim_" + str(args.use_sim_size) + '_' + str(args.use_sim_index)
+    data_name_str = 'None'
+    model_name_str = model_name if not args.if_optnet else f'{model_name}-Opt-{str(optnet_vio_regularity)}-{str(optnet_iterations)}'
+
+    file_name = 'Baseline_' + '_'.join([
+        branch,
+        data_name_str,
+        str(d_factor),
+        model_name_str,
+        str(args.if_optnet),
+        str(args.opt_time),
+    ])
 
     all_lists = []  # used for writing results to a .csv file
     all_text = ""   # used for writing run times to .txt file
     # load capacity and requests data
     print("loading data --")
-    capacities, requests = load_data('data/', branch, typeid, use_sim_capacity=args.use_sim,
-                                     sim_size=args.use_sim_size, sim_index=args.use_sim_index)
+    capacities, requests = load_data('data/', branch)
     print("loading complete.")
     print("totally", len(capacities), "hours of capacity data.")
     print("total number of requests:", len(requests))
 
-    # set pre-tuned default factors
-    request_thres = 1e4 * d_factor
+    if branch == 'Default':
+        request_thres = 1e4 * d_factor
     if branch == 'Azure2019':
         request_thres = 0
     if branch == 'Azure2017':
         request_thres = 0
 
-    default_capacity_scaledown = get_capa_scaledown(branch, typeid, args.use_sim, args.use_sim_size)
-    
     # scale and downsample
     request_downsampling_factor = d_factor  # ratio of requests down-sampling
-    capacity_scale_factor = default_capacity_scaledown*d_factor     # factor for scaling down the capacities
-    """
-    if args.use_sim:
-        # for simulated data, need to modify the d-factor so as to fit the capacity
-        request_downsampling_factor = get_sim_data_downscale_ratio(
-            args.branch, args.typeid, args.use_sim_size) * d_factor
-        capacity_scale_factor = 1
-    """
+    capacity_scale_factor = d_factor        # factor for scaling down the capacities
 
     print("scaling data ---")
     print("capacity_scale_factor:", capacity_scale_factor)
@@ -105,21 +96,10 @@ if __name__ == "__main__":
     y_test = data_y[num_train_samples:]
 
     # ------------------------- data collection & transformation complete ------------------------
-    # calculate optimal utility & deploy ratio using ground truth capacity via MIP;
-    # the ratios can reflect how challenging the instances are.
-    """
-    print("evaluating ground truth train set performance. progress:")
-    _, _, _, deploy_ratios_train = eval_perf_batch(
-        y_train, y_train, req_params_train, T, 'MIP', time_lim=1e4, display=False, nn_device=nn_device)
-    print("train aver deploy ratio:", np.mean(deploy_ratios_train))
-    print("train std deploy ratio:", np.std(deploy_ratios_train))
-    #print(deploy_ratios_train)
-    """
 
     # load pre-calculated ground truth utilities
     try:
-        utilities_True = load_GroundTruth_utilities('exp_results/GroundTruth_results/',
-                        branch, typeid, d_factor, args.use_sim, args.use_sim_size, args.use_sim_index)
+        utilities_True = load_GroundTruth_utilities('exp_results/GroundTruth_results/', branch, d_factor)
     except:
         print("[ERROR]: no pre-cached ground truth results.")
         assert False
@@ -158,18 +138,23 @@ if __name__ == "__main__":
     tick = time.time()
     net.fit(X1_train/data_scaler, y_train/data_scaler)
     tock = time.time()
+    timing_train_time = tock - tick
     print("finished training")
     # training time
     all_text += "run time for model fitting on training set: "
-    all_text += str(tock-tick)
+    all_text += str(timing_train_time)
     all_text += "\n"
 
+
+    print("begin prediction")
     preds_train = net.predict(X1_train/data_scaler) * data_scaler
     tick = time.time()
     preds_test = net.predict(X1_test/data_scaler) * data_scaler
     tock = time.time()
+    timing_pred_time = tock - tick
+    print("finished prediction")
     all_text += "run time for model predicting on test set: "
-    all_text += str(tock - tick)
+    all_text += str(timing_pred_time)
     all_text += "\n"
     if not (preds_train > 0).all():
         print("[WARNING]: negative capacity predictions on training set.")
@@ -178,6 +163,39 @@ if __name__ == "__main__":
         print("[WARNING]: negative capacity predictions on training set.")
         preds_test[preds_test < 0] = 0.01
 
+    # --------evaluate the performance (objval & violation) on the test set and save to files-------
+    if not args.if_optnet == 1:
+        # No training with opt for two stage
+        timing_train_opt_time = 0
+
+        print("evaluating naive two stage.")
+        tick = time.time()
+        utilities_twostage, violating_usage_twostage, viorate_twostage, ratio, run_batch_total_duration = eval_perf_batch(
+            y_test, preds_test, req_params_test, T, args.opt, time_lim=args.opt_time, display=True, nn_device=nn_device, parallel=args.parallel, parallel_proc=args.proc)
+        tock = time.time()
+        timing_test_time = tock - tick
+        timing_test_cpu_time = run_batch_total_duration.total_seconds()
+        
+        all_text += "run time for evaluating naive two stage on test set: "
+        all_text += str(run_batch_total_duration)
+        all_text += "\n"
+
+        util_ratios_twostage = np.array(utilities_twostage)/utilities_True
+        print(ratio)
+        print("aver uti ratio:", np.mean(util_ratios_twostage))
+        print("std uti ratio:", np.std(util_ratios_twostage))
+        print("aver viorate:", np.mean(viorate_twostage))
+        print("std viorate:", np.std(viorate_twostage))
+        all_lists.append(['TwoStage_Utilities'] + utilities_twostage)
+        all_lists.append(['TwoStage_UtiRatios'] + list(util_ratios_twostage))
+        all_lists.append(['TwoStage_VioRates'] + viorate_twostage)
+        
+        test_result_utilities = utilities_twostage
+        test_result_utilities_ratio = util_ratios_twostage
+        test_result_viorate = viorate_twostage
+
+    # Skipping the RobustOpt part
+    '''
     """
     RobustOpt: estimate model uncertainty and calculate capacity cutdown
     """
@@ -203,23 +221,6 @@ if __name__ == "__main__":
             delta.append(-norm.ppf(p)*stdev-mu)
         delta_s.append(np.array(delta))
 
-    # --------evaluate the performance (objval & violation) on the test set and save to files-------
-    print("evaluating naive two stage.")
-    utilities_twostage, violating_usage_twostage, viorate_twostage, ratio, run_batch_total_duration = eval_perf_batch(
-        y_test, preds_test, req_params_test, T, args.opt, time_lim=30, display=True, nn_device=nn_device, parallel=args.parallel, parallel_proc=args.proc)
-    print(ratio)
-    util_ratios_twostage = np.array(utilities_twostage)/utilities_True
-    all_text += "run time for evaluating naive two stage on test set: "
-    all_text += str(run_batch_total_duration)
-    all_text += "\n"
-    print("aver uti ratio:", np.mean(util_ratios_twostage))
-    print("std uti ratio:", np.std(util_ratios_twostage))
-    print("aver viorate:", np.mean(viorate_twostage))
-    print("std viorate:", np.std(viorate_twostage))
-    all_lists.append(['TwoStage_Utilities'] + utilities_twostage)
-    all_lists.append(['TwoStage_UtiRatios'] + list(util_ratios_twostage))
-    all_lists.append(['TwoStage_VioRates'] + viorate_twostage)
-
     for j in range(len(p_s)):
         p = p_s[j]
         print("evaluating RobustOpt with p =", p, "- progress:")
@@ -240,23 +241,31 @@ if __name__ == "__main__":
         all_lists.append(["RobustOpt-p="+str(p)+"_Utilities"] + utilities_Ro)
         all_lists.append(["RobustOpt-p="+str(p)+"_UtiRatios"] + list(util_ratios_Ro))
         all_lists.append(["RobustOpt-p="+str(p)+"_VioRates"] + viorate_Ro)
+    '''
 
-    if if_optnet == 1:
+    if args.if_optnet == 1:
         tick = time.time()
         net.fit_optnet(X1_train/data_scaler, req_params_train, y_train/data_scaler, batch_size=10,
             total_iteration=optnet_iterations, vio_regularity=optnet_vio_regularity, req_core_scaledown=data_scaler)
         tock = time.time()
+        timing_train_opt_time = tock - tick
         all_text += "run time for optnet fitting on training set: "
-        all_text += str(tock - tick)
+        all_text += str(timing_train_opt_time)
         all_text += "\n"
+
         # evaluation
         preds_test = net.predict(X1_test/data_scaler) * data_scaler
         if not (preds_test > 0).all():
             print("[WARNING]: optnet predicts <0 capacities on test set. Setting negative predictions to 0.01.")
             preds_test[preds_test < 0] = 0.01
 
+        tick = time.time()
         utilities_optnet, violating_usage_optnet, viorate_optnet, _, run_batch_total_duration = eval_perf_batch(
-            y_test, preds_test, req_params_test, T, args.opt, time_lim=30, display=True, nn_device=nn_device, parallel=args.parallel, parallel_proc=args.proc)
+            y_test, preds_test, req_params_test, T, args.opt, time_lim=args.opt_time, display=True, nn_device=nn_device, parallel=args.parallel, parallel_proc=args.proc)
+        tock = time.time()
+        timing_test_time = tock - tick
+        timing_test_cpu_time = run_batch_total_duration.total_seconds()
+
         all_text += "run time for optnet evaluation on test set: "
         all_text += str(run_batch_total_duration)
         all_text += "\n"
@@ -269,6 +278,9 @@ if __name__ == "__main__":
         all_lists.append(["OptNet_UtiRatios"] + list(util_ratios_optnet))
         all_lists.append(["OptNet_VioRates"] + viorate_optnet)
 
+        test_result_utilities = utilities_optnet
+        test_result_utilities_ratio = util_ratios_optnet
+        test_result_viorate = viorate_optnet
 
     print("writing results to file --")
     import csv
@@ -280,6 +292,51 @@ if __name__ == "__main__":
     with open('exp_results/'+file_name+'.txt', 'w', encoding='utf-8') as f:
         f.write(all_text)
 
+    with open('exp_results/'+file_name + '.aggregate.csv', 'w', encoding='utf-8') as f:
+        f.write(",".join([
+            'branch',
+            'data_name_str',
+            'd_factor',
+            'model_name',
+            'if_optnet',
+            'opt_time',
+
+            'train_time',
+            'pred_time',
+            'train_opt_time',
+            'test_time',
+            'test_cpu_time',
+            
+            'aver_utilities',
+            'aver_util_ratio',
+            'aver_viorate',
+            'std_utilities',
+            'std_util_ratio',
+            'std_viorate',
+        ]) + "\n")
+        f.write(",".join([
+            branch,
+            data_name_str,
+            str(d_factor),
+            model_name_str,
+            str(args.if_optnet),
+            str(args.opt_time), # time limit for optimization
+
+            str(timing_train_time), # train time
+            str(timing_pred_time), # pred time
+            str(timing_train_opt_time), # optimization time 
+            str(timing_test_time), # optimization time
+            str(timing_test_cpu_time), # optimization time
+
+            str(np.mean(test_result_utilities)), # aver_utilities
+            str(np.mean(test_result_utilities_ratio)), # aver_util_ratio
+            str(np.mean(test_result_viorate)), # aver_viorate
+
+            str(np.std(test_result_utilities)), # std_utilities
+            str(np.std(test_result_utilities_ratio)), # std_util_ratio
+            str(np.std(test_result_viorate)), # std_viorate
+        ]) + "\n")
+    
     if args.parallel:
         executor = get_parallel_executor(args.proc)
         executor.shutdown()

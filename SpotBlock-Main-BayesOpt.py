@@ -10,7 +10,6 @@ import torch
 
 # local libraries & helper functions
 from utils import load_data, scale_and_downsample, load_GroundTruth_utilities, parse_arguments
-from utils import get_sim_data_downscale_ratio, get_capa_scaledown
 from qpth_utils import collect_ML_data, eval_perf_batch, get_parallel_executor
 from nongrad_models.GaussianMixtureModel import GmmModel
 from BayesOpt.BO_main import BO_main
@@ -24,7 +23,6 @@ if __name__ == "__main__":
     args = parse_arguments()
     # retrieve params
     branch = args.branch
-    typeid = args.typeid
     d_factor = args.d_factor
     model_name = args.model_name
     if_optnet = args.if_optnet
@@ -32,55 +30,41 @@ if __name__ == "__main__":
     optnet_iterations = args.optnet_iterations
     p = args.p # violation threshold
 
-    on_gpu = torch.cuda.is_available() if args.use_gpu is None else args.use_gpu 
-    if args.parallel and on_gpu:
-        print("[Warnning] Cannnot use GPU with parallel")
-        on_gpu=False
+    on_gpu = torch.cuda.is_available() if args.use_gpu is None else args.use_gpu
     nn_device = torch.device('cuda') if on_gpu else torch.device('cpu')
 
     file_name = 'BayesOpt_' + '_'.join([
         branch,
-        typeid,
         str(d_factor),
         model_name,
         str(if_optnet),
         str(args.p),
         str(args.bo_iter),
         args.opt,
+        *(('SkipUncertainity', ) if args.skip_uncertainity else ())
     ])
     # generate filename to write results to
     if if_optnet == 1:
         file_name = file_name+"_"+str(optnet_vio_regularity)+"_"+str(optnet_iterations)
-    if args.use_sim:
-        file_name = file_name+"_sim_" + str(args.use_sim_size) + '_' + str(args.use_sim_index)
 
     # load capacity and requests data
     print("loading data --")
-    capacities, requests = load_data('data/', branch, typeid, use_sim_capacity=args.use_sim,
-                                     sim_size=args.use_sim_size, sim_index=args.use_sim_index)
+    capacities, requests = load_data('data/', branch)
     print("loading complete.")
     print("totally", len(capacities), "hours of capacity data.")
     print("total number of requests:", len(requests))
 
-    # set pre-tuned default factors
-    request_thres = 1e4 * d_factor
+    if branch == 'Default':
+        request_thres = 1e4 * d_factor
     if branch == 'Azure2019':
         request_thres = 0
     if branch == 'Azure2017':
         request_thres = 0
 
-    default_capacity_scaledown = get_capa_scaledown(branch, typeid, args.use_sim, args.use_sim_size)
-
     # scale and downsample
     request_downsampling_factor = d_factor  # ratio of requests down-sampling
-    capacity_scale_factor = default_capacity_scaledown*d_factor     # factor for scaling down the capacities
-    """
-    if args.use_sim:
-        # for simulated data, need to modify the d-factor so as to fit the capacity
-        request_downsampling_factor = get_sim_data_downscale_ratio(
-            args.branch, args.typeid, args.use_sim_size) * d_factor
-        capacity_scale_factor = 1
-    """
+    capacity_scale_factor = d_factor     # factor for scaling down the capacities
+
 
     print("scaling data ---")
     print("capacity_scale_factor:", capacity_scale_factor)
@@ -116,8 +100,7 @@ if __name__ == "__main__":
 
     # load pre-calculated ground truth utilities
     try:
-        utilities_True = load_GroundTruth_utilities('exp_results/GroundTruth_results/',
-                        branch, typeid, d_factor, args.use_sim, args.use_sim_size, args.use_sim_index)
+        utilities_True = load_GroundTruth_utilities('exp_results/GroundTruth_results/', branch, d_factor)
     except:
         print("[ERROR]: no pre-cached ground truth results.")
         assert False
@@ -125,13 +108,17 @@ if __name__ == "__main__":
     # ----------------------------- begin model training & evaluation ----------------------------
     def bayesOpt_objFunc(prediction_model, uncertainty_model, lambda_p=1e4):
         # calculate the models' performance on the **training set** and obtain a final score
-        prediction_model.fit(X1_train, y_train)
-        preds_train = prediction_model.predict(X1_train)
+        data_scaler = np.max(X1_train)/10
+        prediction_model.fit(X1_train / data_scaler, y_train / data_scaler)
+        preds_train = prediction_model.predict(X1_train / data_scaler) * data_scaler
 
         E = y_train - preds_train
         # calculate the fitted um attributes for each timestamp
         delta = []  # capacity cutdowns; array of length T.
         for t in range(E.shape[1]):
+            if uncertainty_model is None:
+                delta.append(0)
+                continue
             errors_t = E[:, t]
             uncertainty_model.fit(errors_t)
             epsilon = uncertainty_model.get_distribution()
@@ -140,6 +127,12 @@ if __name__ == "__main__":
             delta.append(-norm.ppf(p) * stdev - mu)
         delta = np.array(delta)
 
+        print("Delta:")
+        print(delta)
+        print("y_train:")
+        print(y_train)
+        print("preds_train:")
+        print(preds_train)
         # evaluate the RobustOpt solution's performance on the training set
         utilities, violating_usage, viorate, _, run_batch_total_duration = eval_perf_batch(
             y_train, preds_train-delta, req_params_train, T, args.opt, time_lim=30, display=False, parallel=args.parallel, parallel_proc=args.proc)
@@ -155,24 +148,25 @@ if __name__ == "__main__":
         from grad_models import ReluFCNet
         net = ReluFCNet(input_size=X1_train.shape[1], hid1=100, hid2=50, pred_size=T, T=T,
                         SGD_params=[1e-4, 0.9], nn_device=nn_device)
-        BayesOpt_selector = BO_main(FCNet_bo_config, T, object_function=bayesOpt_objFunc, input_size=X1_train.shape[1], max_iter=args.bo_iter)
+        BayesOpt_selector = BO_main(FCNet_bo_config, T, object_function=bayesOpt_objFunc, input_size=X1_train.shape[1],
+                                    nn_device=nn_device, max_iter=args.bo_iter, skip_uncertainity = args.skip_uncertainity)
     elif model_name == "LstmNet":
         from grad_models import LstmNet
         net = LstmNet(input_feature_dim=1, output_size=T, T=T, hid_size=100, step_size=1e-3,
                       nn_device=nn_device)
-        BayesOpt_selector = BO_main(TSDec_bo_config, T, bayesOpt_objFunc, max_iter=args.bo_iter)
+        BayesOpt_selector = BO_main(LstmNet_bo_config, T, bayesOpt_objFunc, nn_device=nn_device, max_iter=args.bo_iter, skip_uncertainity = args.skip_uncertainity)
     elif model_name == "LinearFit":
         from nongrad_models.LinearFitModel import LinearFitModel
         net = LinearFitModel(T=T, latest_n=60)
-        BayesOpt_selector = BO_main(LinearFit_bo_config, T, bayesOpt_objFunc, max_iter=args.bo_iter)
+        BayesOpt_selector = BO_main(LinearFit_bo_config, T, bayesOpt_objFunc, nn_device=nn_device, max_iter=args.bo_iter, skip_uncertainity = args.skip_uncertainity)
     elif model_name == "TSDec":
         from nongrad_models.TSDecModel import TSDecModel
         net = TSDecModel(T=T, decompose_length=360, trend_length=12, residual_length=360,
                          time_series_frequency=12)
-        BayesOpt_selector = BO_main(TSDec_bo_config, T, bayesOpt_objFunc, max_iter=args.bo_iter)
+        BayesOpt_selector = BO_main(TSDec_bo_config, T, bayesOpt_objFunc, nn_device=nn_device, max_iter=args.bo_iter, skip_uncertainity = args.skip_uncertainity)
     else:
         assert False
-    um = GmmModel(tol=1e-10, max_components=100)
+    um = GmmModel(tol=1e-10, max_components=100) if not args.skip_uncertainity else None
 
     # find BO-optimized models
     tick = time.time()
@@ -181,12 +175,16 @@ if __name__ == "__main__":
     timing_train_time = tock - tick
     def evaluate_BO_testset(net_final, um_final):
         # evaluate the model on the test set
-        net_final.fit(X1_train, y_train)
-        preds_train = net_final.predict(X1_train)
-        preds_test = net_final.predict(X1_test)
+        data_scaler = np.max(X1_train)/10
+        net_final.fit(X1_train / data_scaler, y_train / data_scaler)
+        preds_train = net_final.predict(X1_train / data_scaler) * data_scaler
+        preds_test = net_final.predict(X1_test / data_scaler) * data_scaler
         E = y_train - preds_train       # the errors on the training set
         delta = []  # capacity cutdowns; array of length T.
         for t in range(E.shape[1]):
+            if um_final is None:
+                delta.append(0)
+                continue
             errors_t = E[:, t]
             um_final.fit(errors_t)
             epsilon = um_final.get_distribution()
@@ -249,7 +247,6 @@ if __name__ == "__main__":
     with open('exp_results/'+file_name+'.csv', 'w', encoding='utf-8') as f:
         f.write(",".join([
             'branch',
-            'typeid',
             'd_factor',
             'model_name',
             'if_optnet',
@@ -278,7 +275,6 @@ if __name__ == "__main__":
         ]) + "\n")
         f.write(",".join([
             branch,  # branch
-            typeid, # typeid
             str(d_factor), # d_factor
             model_name, # model_name
             str(if_optnet), # if_optnet

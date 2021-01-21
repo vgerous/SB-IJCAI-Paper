@@ -1,117 +1,50 @@
 import numpy as np
 import pandas as pd
 
-def load_simulated_capacity(data_path, size, index, timestamp_length):
-    data_size_folder = {
-        'large': 'Large_size_simulate_data',
-        'middle': 'Middle_size_simulate_data',
-        'small': 'Small_size_simulate_data',
-    }
-    data_file_name = {
-        'large': str(index) + '_large_simulated_capacity_with_truth.csv',
-        'middle': str(index) + '_simulated_capacity_with_truth.csv',
-        'small': str(index) + '_small_simulated_capacity_with_truth.csv',
-    }
-    path = data_path + data_size_folder[size.lower()] + '/' + data_file_name[size.lower()]
-    data = pd.read_csv(path, header=0)
-    return data.y[0:timestamp_length].to_list()
 
-def load_sim_capa_stat(data_path, size, index, timestamp_length):
-    data_size_folder = {
-        'large': 'Large_size_simulate_data',
-        'middle': 'Middle_size_simulate_data',
-        'small': 'Small_size_simulate_data',
-    }
-    data_file_name = {
-        'large': str(index) + '_large_simulated_capacity_with_truth.csv',
-        'middle': str(index) + '_simulated_capacity_with_truth.csv',
-        'small': str(index) + '_small_simulated_capacity_with_truth.csv',
-    }
-    path = data_path + data_size_folder[size.lower()] + '/' + data_file_name[size.lower()]
-    data = pd.read_csv(path, header=0)
-    return data.y[0:timestamp_length].to_list(), data.Mean[0:timestamp_length].to_list(), data.Sigma[0:timestamp_length].to_list()
-
-
-def load_data(data_path, branch, typeid, use_sim_capacity=False, sim_size='Large', sim_index=1):
+def load_data(data_path, branch):
     assert branch in ['Default', 'Azure2019', 'Azure2017']
     if branch == 'Default':
-        assert typeid in ['65','64','41','42','m1','m2','m3','m4']
+        capacities = pd.read_csv(data_path+"Capacities_Default.csv", header=None)
 
-        data_path_real = data_path+'Mixed/' if typeid.startswith('m') else data_path
-
-        capacity_data = np.array(pd.read_csv(data_path_real+"capacity_data_Default.csv", header=0))
-        capacities = []
-        for entry in capacity_data:
-            timestamp, typestr, numcores = entry
-            if typestr == typeid+'str':
-                capacities.append(numcores)
-        if use_sim_capacity:
-            capacities = load_simulated_capacity(data_path, sim_size, sim_index, len(capacities))
-
-        jobrequests_data = np.array(pd.read_csv(data_path_real + "JobRequests_Default.csv", header=0))
+        jobrequests_data = np.array(pd.read_csv(data_path + "JobRequests_Default.csv", header=0))
         requests = []
         for entry in jobrequests_data:
             typeid_int, demand_core, duration_timastamp, earliest_time, latest_time = entry
             duration = int(str(duration_timastamp).split(":")[0])
-            if str(typeid_int) == typeid:
-                demand_core_scale_factor = 40 if use_sim_capacity else 1
-                requests.append([demand_core * demand_core_scale_factor, duration, earliest_time, latest_time])
-        return np.array(capacities), np.array(requests)
+            if str(typeid_int) == 'm1':
+                requests.append([demand_core, duration, earliest_time, latest_time])
+        return np.array(capacities).reshape(-1), np.array(requests)
 
     if branch == 'Azure2019':
-        assert typeid in ['t1','t2','t3','t5','t6','t7','m1','m2','m3','m4']
+        capacities = pd.read_csv(data_path + "Capacities_Azure2019.csv", header=0)
 
-        data_path_real = data_path+'Mixed/' if typeid.startswith('m') else data_path
-
-        capacity_data = np.array(pd.read_csv(data_path_real + "capacity_data_Azure2019.csv", header=0))
-        capacities = []
-        for entry in capacity_data:
-            timestamp, typestr, numcores = entry
-            if typestr == typeid + 'str':
-                capacities.append(numcores)
-
-        if use_sim_capacity:
-            capacities = load_simulated_capacity(data_path, sim_size, sim_index, len(capacities))
-
-        jobrequests_data = np.array(pd.read_csv(data_path_real + "JobRequests_Azure2019.csv", header=0))
+        jobrequests_data = np.array(pd.read_csv(data_path + "JobRequests_Azure2019.csv", header=0))
         requests = []
         for entry in jobrequests_data:
             typeid_int, demand_core, duration_timastamp, earliest_time, latest_time = entry
             duration = int(str(duration_timastamp).split(":")[0])
-            if str(typeid_int) == typeid:
+            if str(typeid_int) == 'm3':
                 requests.append([demand_core, duration, earliest_time, latest_time])
-        return np.array(capacities), np.array(requests)
+        return np.array(capacities).reshape(-1), np.array(requests)
 
     if branch == 'Azure2017':
-        assert typeid in ['t1','t2','t3','t5','t6','m1','m2','m3','m4']  # 't7' is banned here
-        
-        data_path_real = data_path+'Mixed/' if typeid.startswith('m') else data_path
+        capacities = pd.read_csv(data_path + "Capacities_Azure2017.csv", header=0)
 
-        capacity_data = np.array(pd.read_csv(data_path_real + "capacity_data_Azure2017.csv", header=0))
-        capacities = []
-        for entry in capacity_data:
-            timestamp, typestr, numcores = entry
-            if typestr == typeid + 'str':
-                capacities.append(numcores)
-
-        if use_sim_capacity:
-            capacities = load_simulated_capacity(data_path, sim_size, sim_index, len(capacities))
-
-        jobrequests_data = np.array(pd.read_csv(data_path_real + "JobRequests_Azure2017.csv", header=0))
+        jobrequests_data = np.array(pd.read_csv(data_path + "JobRequests_Azure2017.csv", header=0))
         requests = []
         for entry in jobrequests_data:
             typeid_int, demand_core, duration_timastamp, earliest_time, latest_time = entry
             duration = int(str(duration_timastamp).split(":")[0])
-            if str(typeid_int) == typeid:
+            if str(typeid_int) == 'm2':
                 requests.append([demand_core, duration, earliest_time, latest_time])
-        return np.array(capacities), np.array(requests)
+        return np.array(capacities).reshape(-1), np.array(requests)
 
 
-def load_GroundTruth_utilities(GroundTruth_path, branch, typeid, d_factor, if_sim, sim_size, sim_index):
-    file_name = branch+"_"+typeid+"_"+str(d_factor)
-    if if_sim:
-        file_name = file_name + "_sim_" + str(sim_size) + '_' + str(sim_index)
+def load_GroundTruth_utilities(GroundTruth_path, branch, d_factor):
+    file_name = branch+"_"+str(d_factor)
     return np.array(pd.read_csv(GroundTruth_path + file_name + '_GroundTruth.csv', header=0)).reshape(-1)
+
 
 def scale_and_downsample(capacities, requests, capacity_scale_factor, request_downsampling_factor, seed=0):
     """
@@ -236,15 +169,11 @@ def parse_arguments():
     import argparse, sys
     parser = argparse.ArgumentParser()
     parser.add_argument('branch', type=str, help='which branch of data to use')
-    parser.add_argument('typeid', type=str, help='typeid of VMs considered')
     parser.add_argument('d_factor', type=float, help='ratio of requests down-sampling')
     parser.add_argument('model_name', nargs='?', type=str, help='prediction model')
     parser.add_argument('if_optnet', nargs='?', type=int, help='1/0 indicating whether use optnet option')
     parser.add_argument('optnet_vio_regularity', nargs='?', type=float, default=50, help='')
     parser.add_argument('optnet_iterations', nargs='?', type=int, default=10, help='')
-    parser.add_argument('--use-sim', type=bool, default=False, help='whether to use simulated capacity')
-    parser.add_argument('--use-sim-size', type=str, default='large', help='category of simulated capacity')
-    parser.add_argument('--use-sim-index', type=int, default=1, help='file index of simulated capacity')
     parser.add_argument('--use-gpu', type=bool, default=None, help='whether to use gpu')
     parser.add_argument('--p', type=float, default=0.05, help='violation threshold p (BayesOpt only)')
     parser.add_argument('--parallel', type=bool, default=False, help='Use process-poll parallelism')
@@ -252,6 +181,8 @@ def parse_arguments():
     parser.add_argument('--override', type=bool, default=False, help='whether to override existing cache (Cache only)')
     parser.add_argument('--opt', type=str, default='MIP', help='Optimization to use: MIP, Heuristic')
     parser.add_argument('--bo-iter', type=int, default=10, help='Iterations in Bayesian Optimization')
+    parser.add_argument('--opt-time', type=int, default=30, help='Time limit for optimization (applicable to MIP)')
+    parser.add_argument('--skip-uncertainity', type=bool, default=False, help='Skip uncertainity modeling for BO')
 
     try:
         args = parser.parse_args()
@@ -261,99 +192,3 @@ def parse_arguments():
     except:
         parser.print_help()
         exit()
-
-def get_sim_data_downscale_ratio(branch, typeid, sim_size):
-    mapping = {
-        'Azure2019': {
-            'small': {'t1': 0.04, 't2': 0.03, 't3': 0.1, 'm1': 0.02, 'm2': 0.02, 'm3': 0.012},
-            'middle': {'t1': 0.25, 't2': 0.15, 't3': 0.6, 'm1': 0.15, 'm2': 0.15, 'm3': 0.1},
-            'large': {'t1': 0.5, 't2': 0.3, 'm1': 0.5, 'm2': 0.28, 'm3': 0.18 },
-        },
-        'Azure2017': {
-            'small': {'m1':0.04, 'm2':0.05, 'm3':0.035},
-            'middle': {'m1':0.22, 'm2':0.22, 'm3':0.2},
-            'large': {'m1':0.45, 'm2':0.48, 'm3':0.3},
-        },
-        'Default': {
-            'small': {'m1':0.025, 'm2':0.06, 'm3':0.04},
-            'middle': {'m1':0.12, 'm2':0.3, 'm3':0.2},
-            'large': {'m1':0.23, 'm2':0.6, 'm3':0.42},
-        },
-    }
-    dic = mapping
-    if branch not in dic.keys():
-        return 1.0
-    dic = dic[branch]
-    if sim_size not in dic.keys():
-        return 1.0
-    dic = dic[sim_size]
-    if typeid not in dic.keys():
-        print(typeid,dic.keys())
-        return 1.0
-    return dic[typeid]
-
-def scale_dict_vals(dictionary, factor):
-    # recursively scale all values in dictionary by factor
-    for key in dictionary.keys():
-        if type(dictionary[key]) == dict:
-            dictionary[key] = scale_dict_vals(dictionary[key], factor)
-        else:
-            dictionary[key] = dictionary[key] * factor
-    return dictionary
-
-
-def get_capa_scaledown(branch, typeid, if_sim, sim_size):
-    if not if_sim:
-        # real data params
-        mapping = {
-            'Default': {
-                '64': 0.15, '65': 0.06, '42': 0.03, '41': 0.03,
-                'm1': 0.04, 'm2': 0.06, 'm3': 0.05, 'm4': 0.05
-            },
-            'Azure2019': {
-                't1': 0.055, 't2': 0.07, 't3': 0.013, 't5': 0.05, 't6': 0.015, 't7': 0.1,
-                'm1': 0.04, 'm2': 0.025, 'm3': 0.06, 'm4': 0.05
-            },
-            'Azure2017': {
-                't1': 0.014, 't2': 0.032, 't3': 0.015, 't5': 0.05, 't6': 0.023,
-                'm1': 0.03, 'm2': 0.02, 'm3': 0.03, 'm4': 0.04
-            },
-        }
-        dic = mapping
-        if branch not in dic.keys():
-            assert False
-        dic = dic[branch]
-        if typeid not in dic.keys():
-            assert False
-        return dic[typeid]
-
-    # sim data params
-    sim_middle_dict = {
-        'Default': {
-            '64': 1.5, '65': 2.0, '42': 3.0, '41': 1.0,
-            'm1': 6.0, 'm2': 3.0, 'm3': 2.5, 'm4': 6.0
-        },
-        'Azure2019': {
-            't1': 3.5, 't2': 6.0, 't3': 1.3, 't5': 5.0, 't6': 1.5, 't7': 4.0,
-            'm1': 8.0, 'm2': 2.5, 'm3': 6.0, 'm4': 7.0
-        },
-        'Azure2017': {
-            't1': 1.0, 't2': 2.3, 't3': 1.7, 't5': 2.0, 't6': 0.2,
-            'm1': 6.0, 'm2': 3.5, 'm3': 3.0, 'm4': 4.0
-        },
-    }
-
-    dic = {
-        'small': scale_dict_vals(sim_middle_dict, 0.2),
-        'middle': sim_middle_dict,
-        'large': scale_dict_vals(sim_middle_dict, 2)
-    }
-    if sim_size not in dic.keys():
-        assert False
-    dic = dic[sim_size]
-    if branch not in dic.keys():
-        assert False
-    dic = dic[branch]
-    if typeid not in dic.keys():
-        assert False
-    return dic[typeid]

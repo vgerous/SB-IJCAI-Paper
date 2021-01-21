@@ -10,22 +10,25 @@ from nongrad_models.GaussianMixtureModel import GmmModel
 from nongrad_models.LinearFitModel import LinearFitModel
 from nongrad_models.TSDecModel import TSDecModel
 from grad_models import ReluFCNet
+from grad_models import LstmNet
 from .bo_config import TSDec_bo_config
-
+import torch
 
 class ParamsAnalyzer:
     '''
     ParamsAnalyzer for unit-models solver
     '''
-    def __init__(self, config, T, input_size, random_seed=1):
+    def __init__(self, config, T, input_size, random_seed=1, nn_device=torch.device('cpu'), skip_uncertainity = False):
         np.random.seed(random_seed)
         random.seed(random_seed+1)
 
         self.mapping = {
             "TSDecModel": TSDecModel(T=T),
             "LinearFitModel": LinearFitModel(T=T),
-            "FCNet": ReluFCNet(input_size=input_size, T=T, pred_size=T),
+            "FCNet": ReluFCNet(input_size=input_size, T=T, pred_size=T, nn_device=nn_device),
             "GMM": GmmModel(),
+            "LstmNet": LstmNet(input_feature_dim=1, output_size=T, T=T, hid_size=100, step_size=1e-3, nn_device=nn_device),
+            "None": None
         }
 
         self.predictor_name = [*config["predictor_config"].keys()][0]
@@ -41,8 +44,8 @@ class ParamsAnalyzer:
             else:
                 raise Exception("unsupport parameter type!")
 
-        self.uncertainty_name = [*config["uncertainty_config"].keys()][0]
-        self.uncertainty_config = copy.deepcopy(config["uncertainty_config"][self.uncertainty_name])
+        self.uncertainty_name = [*config["uncertainty_config"].keys()][0] if not skip_uncertainity else 'None'
+        self.uncertainty_config = copy.deepcopy(config["uncertainty_config"][self.uncertainty_name]) if not skip_uncertainity else {}
 
         for param_name, param_info in self.uncertainty_config.items():
             self.uncertainty_config[param_name]["begin_index"] = index

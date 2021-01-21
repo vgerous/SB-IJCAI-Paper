@@ -137,9 +137,11 @@ class LstmNet(nn.Module):
         super(LstmNet, self).__init__()
         self.nn_device = nn_device
         self.step_size = step_size
+        self.input_feature_dim = input_feature_dim
+        self.output_size = output_size
         self.hidden_layer_size = hid_size
-        self.lstm = nn.LSTM(input_feature_dim, hid_size)
-        self.linear = nn.Linear(hid_size, output_size)
+        self.lstm = nn.LSTM(input_feature_dim, hid_size).to(nn_device)
+        self.linear = nn.Linear(hid_size, output_size).to(nn_device)
         self.hidden_cell = (torch.zeros(1, 1, self.hidden_layer_size),
                             torch.zeros(1, 1, self.hidden_layer_size))
         self.T = T
@@ -147,10 +149,15 @@ class LstmNet(nn.Module):
 
     def set_params(self, **params):
         if "hid_size" in params:
-            self.hid_size = params["hid_size"]
+            hid_size = params["hid_size"]
+            self.hidden_layer_size = hid_size
+            self.lstm = nn.LSTM(self.input_feature_dim, hid_size).to(self.nn_device)
+            self.linear = nn.Linear(hid_size, self.output_size).to(self.nn_device)
+            self.hidden_cell = (torch.zeros(1, 1, self.hidden_layer_size),
+                                torch.zeros(1, 1, self.hidden_layer_size))
+            self.to(self.nn_device)
         if "step_size" in params:
             self.step_size = params["step_size"] 
-        self.hidden_layer_size = self.hid_size
 
     def forward(self, x):
         """
@@ -183,7 +190,7 @@ class LstmNet(nn.Module):
             a_hat[a_hat < 0] = 0.01
         # retrieve request data for this training instance
         N, c, d, e, l = requests2params(req_param)
-        c /= req_core_scaledown
+        c = c.astype('float') /req_core_scaledown
         # scale down the cores according to the core_scaledown factors
         epsilon, p, G, h = transform_qpth(self.T, N, c, d, e, l, sparse=False)  # qpth no sparse implementations support
         # now transform and invoke qpth
