@@ -80,6 +80,8 @@ Runs and saves the following results to an excel file with the corresponding fil
 - **qpth_local**: the qpth package (https://locuslab.github.io/qpth/) with some local modifications for speeding up in our experiments.
 - **utils.py**: contains helper functions for loading/pre-processing raw data.
 - **qpth_utils.py**: contains helper functions for qpth-related parameter transformations.
+- **heuristic.cpp**, **HS.cpp**: source files to support heuristic search method.
+- **heuristic.cpython-38-x86_64-linux-gnu.so**, **HS_cpp**: executive files to support heuristic search method.
 
 
 
